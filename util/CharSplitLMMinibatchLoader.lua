@@ -163,7 +163,7 @@ function CharSplitLMMinibatchLoader.create_vocab(word_level, threshold, in_textf
     -- record all characters to a set
     local unordered = {}
     --rawdata = re.sub('([%s])' % (re.escape(string.punctuation)+"1234567890"), r" \1 ", rawdata)
-    local numtokens = 0    
+    local numtokens = 0
     local j = 0
     for token in CharSplitLMMinibatchLoader.tokens(in_textfile, word_level) do
         j = j + 1
@@ -281,7 +281,7 @@ function CharSplitLMMinibatchLoader.text_to_tensor(word_level, threshold, in_tex
     -- record all characters to a set
     local unordered = {}
     --rawdata = re.sub('([%s])' % (re.escape(string.punctuation)+"1234567890"), r" \1 ", rawdata)
-    local numtokens = 0    
+    local numtokens = 0
     collectgarbage()
     for token in CharSplitLMMinibatchLoader.tokens(in_textfile, word_level) do --rawdata, word_level) do     
         if not unordered[token] and numtokens > 30000000 then
@@ -317,7 +317,7 @@ function CharSplitLMMinibatchLoader.text_to_tensor(word_level, threshold, in_tex
     -- construct a tensor with all the data
     print('vocabulary size:', #ordered)
     print('putting data into tensor...')
-    local data = word_level and torch.IntTensor(numtokens) or torch.ByteTensor(#rawdata) -- store it into 1D first, then rearrange
+    local data = word_level and torch.IntTensor(numtokens) or torch.ShortTensor(numtokens) -- store it into 1D first, then rearrange
     if word_level then
         local i = 1
         for token in CharSplitLMMinibatchLoader.tokens(in_textfile, word_level) do
@@ -325,9 +325,14 @@ function CharSplitLMMinibatchLoader.text_to_tensor(word_level, threshold, in_tex
             i = i + 1
         end
     else
-		for i=1, #rawdata do
-			data[i] = vocab_mapping[rawdata:sub(i, i)] -- lua has no string indexing using []
-		end
+        local pos = 1
+        for char in string.gfind(rawdata, "([%z\1-\127\194-\244][\128-\191]*)") do
+            data[pos] = vocab_mapping[char]
+            pos = pos + 1
+        end
+		-- for i=1, #rawdata do
+		-- 	data[i] = vocab_mapping[rawdata:sub(i, i)] -- lua has no string indexing using []
+		-- end
     end
 
     -- save output preprocessed files
@@ -346,7 +351,8 @@ function CharSplitLMMinibatchLoader.tokens(filename, word_level)
         local f = torch.DiskFile(filename)
         rawdata = f:readString('*a') -- NOTE: this reads the whole file at once
         f:close()
-        return rawdata:gmatch'.'
+        -- return rawdata:gmatch'.'
+        return string.gfind(rawdata, "([%z\1-\127\194-\244][\128-\191]*)")
     end
 end
 
